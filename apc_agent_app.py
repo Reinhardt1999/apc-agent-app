@@ -1,7 +1,7 @@
 import streamlit as st
 import time
 
-st.set_page_config(page_title="APC Agent V3", layout="wide")
+st.set_page_config(page_title="APC Agent V4", layout="wide")
 
 # ==========================
 # FUNCTIONS
@@ -94,19 +94,19 @@ page = st.sidebar.selectbox("Navigate", [
 # ==========================
 
 if page == "Home":
-    st.title("🏠 APC Preparation Agent (CA SA)")
+    st.title("🏠 APC Preparation Agent (V4)")
 
     st.markdown("""
     ### Welcome
 
-    This tool helps you prepare for the **SAICA APC** through:
+    This tool helps you prepare for the SAICA APC:
 
-    - 📄 Trigger Identification  
-    - 📘 Research Pack Development  
-    - 🧪 Exam Simulation  
-    - ✅ Competency-Based Marking  
+    - 📄 Identify triggers and risks  
+    - 📘 Build structured research packs  
+    - 🧪 Simulate the APC exam  
+    - ✅ Get competency-based feedback  
 
-    Use the sidebar to navigate.
+    Use the sidebar to begin.
     """)
 
 # ==========================
@@ -161,16 +161,16 @@ elif page == "Research Pack":
             st.text(summary)
 
             st.subheader("Audit")
-            st.write("Focus on control weaknesses and fraud risk areas.")
+            st.write("Focus on high-risk audit areas, including controls and potential fraud.")
 
             st.subheader("Accounting")
-            st.write("Apply relevant IFRS standards and ensure correct recognition and measurement.")
+            st.write("Apply IFRS standards with appropriate judgement and disclosure.")
 
             st.subheader("Tax")
-            st.write("Assess compliance risks and SARS exposure.")
+            st.write("Evaluate tax exposure, compliance, and SARS risks.")
 
             st.subheader("Financial Management")
-            st.write("Evaluate cash flow, liquidity and sustainability.")
+            st.write("Assess liquidity, performance, and strategic financial risks.")
 
         else:
             st.warning("Enter a case first")
@@ -180,7 +180,7 @@ elif page == "Research Pack":
 # ==========================
 
 elif page == "Practice Exam":
-    st.header("🧪 APC Simulation")
+    st.header("🧪 APC Exam Simulation")
 
     case = st.text_area("Paste case study")
 
@@ -191,13 +191,15 @@ elif page == "Practice Exam":
 
             st.subheader("REQUIRED")
 
-            st.write("1. Evaluate accounting treatment")
-            st.write("2. Identify audit risks and procedures")
+            st.write("1. Evaluate the accounting treatment (IFRS)")
+            st.write("2. Identify audit risks and responses")
             st.write("3. Discuss tax implications")
             st.write("4. Provide an integrated recommendation")
 
-            # TIMER START
             st.session_state.start_time = time.time()
+
+        else:
+            st.warning("Enter a case first")
 
     if "start_time" in st.session_state:
         elapsed = int(time.time() - st.session_state.start_time)
@@ -225,12 +227,11 @@ elif page == "Submit Answer":
         if answer:
             level = competency_level(answer)
 
-            st.subheader(f"Performance: {level}")
-
-            st.subheader("Feedback")
+            st.subheader(f"Performance Level: {level}")
 
             feedback = generate_feedback(answer)
 
+            st.subheader("Feedback")
             if feedback:
                 for f in feedback:
                     st.write(f)
@@ -238,12 +239,11 @@ elif page == "Submit Answer":
                 st.write("✅ Strong integrated response")
 
         else:
-            st.warning("Please provide an answer")
+            st.warning("Provide an answer")
 
 # ==========================
 # FOOTER
 # ==========================
 
 st.markdown("---")
-st.caption("APC Agent V3 | Built for CA(SA) Success")
-``
+st.caption("APC Agent V4 | CA(SA) Preparation Tool")
