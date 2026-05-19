@@ -1,164 +1,203 @@
 import streamlit as st
+import time
 
-st.set_page_config(page_title="APC Agent (CA(SA))", layout="wide")
-
-st.title("🧠 APC Preparation Agent (CA(SA))")
+st.set_page_config(page_title="APC Agent Pro", layout="wide")
 
 # ==========================
-# SECTION 1: TRIGGERS
+# NAVIGATION
 # ==========================
-st.header("1️⃣ Trigger Identification")
+page = st.sidebar.selectbox("Navigate", [
+    "Home",
+    "Analyse Case",
+    "Research Pack",
+    "Practice Exam",
+    "Submit Answer"
+])
 
-case_text = st.text_area("Paste Case Study Here")
+# ==========================
+# HOME PAGE
+# ==========================
+if page == "Home":
+    st.title("🏠 APC Preparation Agent (CA SA)")
 
-if st.button("Identify Triggers"):
-    triggers = []
+    st.write("""
+    Simulate the SAICA APC with structured tools:
+    - Trigger identification
+    - Research pack building
+    - Exam simulation
+    - Competency-based marking
+    """)
 
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.info("📄 Analyse Case")
+        st.info("📘 Build Research Pack")
+
+    with col2:
+        st.info("🧪 Practice Exam")
+        st.info("✅ Submit & Get Marked")
+
+# ==========================
+# FUNCTIONS
+# ==========================
+def identify_triggers(text):
     keywords = {
-        "Accounting": ["revenue", "lease", "impairment", "IFRS"],
-        "Audit": ["control", "fraud", "risk", "audit"],
-        "Tax": ["vat", "tax", "deferred", "SARS"],
-        "Financial Management": ["cash", "budget", "loan", "liquidity"],
-        "Ethics": ["conflict", "pressure", "governance"]
+        "Accounting": ["revenue", "IFRS", "lease", "impairment"],
+        "Audit": ["control", "fraud", "risk"],
+        "Tax": ["tax", "VAT", "SARS"],
+        "Financial Management": ["cash", "liquidity", "budget"],
+        "Ethics": ["pressure", "conflict", "governance"]
     }
+
+    results = []
 
     for category, words in keywords.items():
         for word in words:
-            if word.lower() in case_text.lower():
-                triggers.append(f"{category}: {word}")
+            if word.lower() in text.lower():
+                risk = classify_risk(word)
+                results.append((category, word, risk))
 
-    if triggers:
-        st.subheader("Identified Triggers")
-        for t in set(triggers):
-            st.write(f"✅ {t}")
+    return list(set(results))
+
+
+def classify_risk(word):
+    high = ["fraud", "going concern"]
+    medium = ["revenue", "tax", "IFRS"]
+
+    if word in high:
+        return "HIGH"
+    elif word in medium:
+        return "MEDIUM"
+    return "LOW"
+
+
+def competency_level(ans):
+    ans = ans.lower()
+
+    strong = ["therefore", "recommend", "because", "risk", "ifrs", "audit"]
+
+    score = sum([1 for w in strong if w in ans])
+
+    if len(ans) > 500 and score >= 5:
+        return "Highly Competent"
+    elif len(ans) > 350 and score >= 4:
+        return "Competent"
+    elif len(ans) > 250:
+        return "Borderline Competent"
+    elif len(ans) > 150:
+        return "Limited Competent"
     else:
-        st.info("No triggers detected. Try adding more context.")
+        return "Not Competent"
 
-# ==========================
-# SECTION 2: RESEARCH PACK
-# ==========================
-st.header("2️⃣ Research Pack Generator")
 
-issue = st.text_input("Key Issue")
-
-st.subheader("Executive Summary")
-exec_summary = st.text_area("Write executive summary")
-
-st.subheader("Audit")
-audit_section = st.text_area("Audit analysis")
-
-st.subheader("Accounting")
-accounting_section = st.text_area("Accounting (IFRS)")
-
-st.subheader("Tax")
-tax_section = st.text_area("Tax analysis")
-
-st.subheader("Financial Management")
-fm_section = st.text_area("Financial Management")
-
-st.subheader("Recommendation")
-recommendation = st.text_area("Final integrated recommendation")
-
-if st.button("Generate Pack"):
-    st.success("✅ Research Pack Created")
-    st.markdown("### Executive Summary")
-    st.write(exec_summary)
-
-    st.markdown("### Audit")
-    st.write(audit_section)
-
-    st.markdown("### Accounting")
-    st.write(accounting_section)
-
-    st.markdown("### Tax")
-    st.write(tax_section)
-
-    st.markdown("### Financial Management")
-    st.write(fm_section)
-
-    st.markdown("### Recommendation")
-    st.write(recommendation)
-
-# ==========================
-# SECTION 3: QUESTION ENGINE
-# ==========================
-st.header("3️⃣ Question Builder + Marking")
-
-topic = st.text_input("Enter Topic (e.g. revenue recognition)")
-
-if st.button("Generate Question"):
-    question = f"Evaluate the risks relating to {topic} and provide recommendations."
-    st.subheader("Generated Question")
-    st.write(question)
-
-# Candidate Answer
-st.subheader("Submit Your Answer")
-answer = st.text_area("Write your answer here")
-
-# ==========================
-# MARKING LOGIC
-# ==========================
-
-def mark_answer(ans):
-    score = 0
+def generate_feedback(ans):
     feedback = []
 
-    # Technical keywords check
-    if "IFRS" in ans:
-        score += 8
-        feedback.append("✅ Good use of IFRS")
-    else:
-        score += 3
-        feedback.append("⚠️ Add IFRS references")
+    if "ifrs" not in ans.lower():
+        feedback.append("⚠️ Include IFRS references")
 
-    if "risk" in ans.lower():
-        score += 8
-        feedback.append("✅ Risks identified")
-    else:
-        score += 3
-        feedback.append("⚠️ Identify more risks")
+    if "risk" not in ans.lower():
+        feedback.append("⚠️ Clearly identify risks")
 
-    if "recommend" in ans.lower():
-        score += 8
-        feedback.append("✅ Recommendations provided")
-    else:
-        score += 3
-        feedback.append("⚠️ Provide clearer recommendations")
+    if "recommend" not in ans.lower():
+        feedback.append("⚠️ Provide clear recommendations")
 
-    if len(ans) > 300:
-        score += 8
-        feedback.append("✅ Good depth")
-    else:
-        score += 3
-        feedback.append("⚠️ Expand your analysis")
+    if "therefore" not in ans.lower():
+        feedback.append("⚠️ Strengthen your conclusion")
 
-    # Structure assumption
-    score += 8
+    if len(ans.split()) < 200:
+        feedback.append("⚠️ Increase depth of analysis")
 
-    return score, feedback
-
-if st.button("Mark My Answer"):
-    score, feedback = mark_answer(answer)
-
-    st.subheader(f"Score: {score}/40")
-
-    if score >= 32:
-        level = "Distinction"
-    elif score >= 24:
-        level = "Competent"
-    elif score >= 16:
-        level = "Marginal"
-    else:
-        level = "Not Competent"
-
-    st.write(f"Performance Level: {level}")
-
-    st.subheader("Feedback")
-    for f in feedback:
-        st.write(f)
+    return feedback
 
 # ==========================
-# FOOTER
+# ANALYSE CASE
 # ==========================
-st.markdown("---")
-st.caption("Built for SAICA APC Prep | Focus: Integration + Judgement")
+elif page == "Analyse Case":
+    st.header("📄 Analyse Case Study")
+
+    uploaded_file = st.file_uploader("Upload case (txt)", type=["txt"])
+    text_input = st.text_area("Or paste case")
+
+    case = ""
+
+    if uploaded_file:
+        case = uploaded_file.read().decode("utf-8")
+    elif text_input:
+        case = text_input
+
+    if st.button("Identify Triggers"):
+        if case:
+            triggers = identify_triggers(case)
+
+            st.subheader("Detected Issues")
+
+            for t in triggers:
+                st.write(f"✅ {t[0]} → {t[1]} ({t[2]} risk)")
+        else:
+            st.warning("Upload or paste a case")
+
+# ==========================
+# RESEARCH PACK
+# ==========================
+elif page == "Research Pack":
+    st.header("📘 Research Pack Generator")
+
+    case = st.text_area("Paste case")
+
+    if st.button("Generate Pack"):
+        if case:
+            triggers = identify_triggers(case)
+
+            summary = "Key Risks Identified:\n"
+            for t in triggers:
+                summary += f"- {t[0]} ({t[2]} risk)\n"
+
+            audit = "Audit focus on control weaknesses and fraud risk."
+            accounting = "Apply IFRS standards appropriately."
+            tax = "Assess SARS exposure and compliance."
+            fm = "Evaluate liquidity and sustainability."
+
+            st.subheader("Executive Summary")
+            st.write(summary)
+
+            st.subheader("Audit")
+            st.write(audit)
+
+            st.subheader("Accounting")
+            st.write(accounting)
+
+            st.subheader("Tax")
+            st.write(tax)
+
+            st.subheader("Financial Management")
+            st.write(fm)
+
+        else:
+            st.warning("Enter a case")
+
+# ==========================
+# PRACTICE EXAM
+# ==========================
+elif page == "Practice Exam":
+    st.header("🧪 APC Simulation")
+
+    case = st.text_area("Paste case for simulation")
+
+    if st.button("Generate Exam"):
+        if case:
+            triggers = identify_triggers(case)
+
+            st.subheader("Case Study")
+            st.write(case)
+
+            st.subheader("REQUIRED:")
+
+            st.write("1. Evaluate accounting treatment")
+            st.write("2. Identify audit risks & procedures")
+            st.write("3. Discuss tax implications")
+            st.write("4. Provide integrated recommendation")
+
+            # TIMER
+
