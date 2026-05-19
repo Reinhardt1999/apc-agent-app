@@ -1,249 +1,260 @@
 import streamlit as st
 import time
+from PyPDF2 import PdfReader
 
-st.set_page_config(page_title="APC Agent V4", layout="wide")
+st.set_page_config(page_title="APC Agent V11", layout="wide")
 
 # ==========================
-# FUNCTIONS
+# SESSION STATE INIT
 # ==========================
+if "history" not in st.session_state:
+    st.session_state.history = []
 
-def classify_risk(word):
-    high = ["fraud", "going concern"]
-    medium = ["revenue", "tax", "ifrs"]
+# ==========================
+# PDF EXTRACTION
+# ==========================
+def extract_pdf(file):
+    reader = PdfReader(file)
+    text = ""
+    for p in reader.pages:
+        t = p.extract_text()
+        if t:
+            text += t + "\n"
+    return text
 
-    if word.lower() in high:
-        return "HIGH"
-    elif word.lower() in medium:
-        return "MEDIUM"
-    return "LOW"
+# ==========================
+# CONFIG
+# ==========================
+trigger_map = {
+    "Accounting": ["revenue", "ifrs", "lease", "impairment"],
+    "Audit": ["control", "fraud", "risk"],
+    "Tax": ["tax", "vat", "sars"],
+    "FM": ["cash", "liquidity", "budget"],
+    "Ethics": ["pressure", "conflict", "governance"]
+}
 
-
+# ==========================
+# TRIGGERS
+# ==========================
 def identify_triggers(text):
-    keywords = {
-        "Accounting": ["revenue", "ifrs", "lease", "impairment"],
-        "Audit": ["control", "fraud", "risk"],
-        "Tax": ["tax", "vat", "sars"],
-        "Financial Management": ["cash", "liquidity", "budget"],
-        "Ethics": ["pressure", "conflict", "governance"]
+    results = []
+    sentences = text.split(".")
+    for cat, words in trigger_map.items():
+        for w in words:
+            if w in text.lower():
+                example = next((s.strip() for s in sentences if w in s.lower()), "")
+                results.append({
+                    "category": cat,
+                    "word": w,
+                    "strength": "STRONG" if w in ["fraud", "revenue"] else "WEAK",
+                    "example": example
+                })
+    return results
+
+# ==========================
+# HIGHLIGHT
+# ==========================
+def highlight(text, triggers):
+    for t in triggers:
+        color = "red" if t["strength"] == "STRONG" else "yellow"
+        text = text.replace(t["word"], f"<mark style='background:{color}'>{t['word']}</mark>")
+    return text
+
+# ==========================
+# MARKING
+# ==========================
+def grade(ans):
+    ans = ans.lower()
+    length = len(ans.split())
+
+    if length > 500 and "ifrs" in ans:
+        return "Highly Competent"
+    elif length > 350:
+        return "Competent"
+    elif length > 250:
+        return "Borderline Competent"
+    elif length > 150:
+        return "Limited Competent"
+    return "Not Competent"
+
+def competency_scores(ans):
+    ans = ans.lower()
+    return {
+        "Accounting": "✅" if "ifrs" in ans else "❌",
+        "Audit": "✅" if "risk" in ans else "❌",
+        "Tax": "✅" if "tax" in ans else "❌",
+        "FM": "✅" if "cash" in ans else "❌"
     }
 
-    results = []
+# ==========================
+# AI EXAMINER
+# ==========================
+def examiner_comments(ans, grade):
+    comments = []
 
-    for category, words in keywords.items():
-        for word in words:
-            if word in text.lower():
-                risk = classify_risk(word)
-                results.append((category, word, risk))
-
-    return list(set(results))
-
-
-def competency_level(ans):
-    ans = ans.lower()
-
-    indicators = ["therefore", "recommend", "because", "risk", "ifrs", "audit"]
-    score = sum([1 for w in indicators if w in ans])
-
-    if len(ans) > 500 and score >= 5:
-        return "Highly Competent"
-    elif len(ans) > 350 and score >= 4:
-        return "Competent"
-    elif len(ans) > 250:
-        return "Borderline Competent"
-    elif len(ans) > 150:
-        return "Limited Competent"
+    if grade == "Highly Competent":
+        comments.append("Strong integration and technical depth.")
+    elif grade == "Competent":
+        comments.append("Competent but lacks full integration.")
     else:
-        return "Not Competent"
-
-
-def generate_feedback(ans):
-    feedback = []
+        comments.append("Insufficient depth and analysis.")
 
     if "ifrs" not in ans.lower():
-        feedback.append("⚠️ Include IFRS references")
-
+        comments.append("Weak accounting reference.")
     if "risk" not in ans.lower():
-        feedback.append("⚠️ Clearly identify risks")
+        comments.append("Risk identification lacking.")
 
-    if "recommend" not in ans.lower():
-        feedback.append("⚠️ Provide clear recommendations")
+    return comments
 
-    if "therefore" not in ans.lower():
-        feedback.append("⚠️ Strengthen your conclusion")
+# ==========================
+# MODEL ANSWER
+# ==========================
+def model_answer(triggers):
+    output = []
+    for t in triggers:
+        if t["category"] == "Accounting":
+            output.append("Apply IFRS principles.")
+        elif t["category"] == "Audit":
+            output.append("Identify audit risks.")
+        elif t["category"] == "Tax":
+            output.append("Discuss tax implications.")
+        elif t["category"] == "FM":
+            output.append("Evaluate financial impact.")
+    return list(set(output))
 
-    if len(ans.split()) < 200:
-        feedback.append("⚠️ Increase depth of analysis")
-
-    return feedback
-
+# ==========================
+# ADAPTIVE ENGINE
+# ==========================
+def suggest_next_level(grade):
+    if grade == "Highly Competent":
+        return "Advanced case recommended ✅"
+    elif grade == "Competent":
+        return "Practice integration scenarios"
+    else:
+        return "Revise fundamentals (IFRS, audit risks)"
 
 # ==========================
 # NAVIGATION
 # ==========================
-
-page = st.sidebar.selectbox("Navigate", [
+page = st.sidebar.selectbox("Navigation", [
     "Home",
-    "Analyse Case",
-    "Research Pack",
-    "Practice Exam",
-    "Submit Answer"
+    "Case Analysis",
+    "Mock Exam",
+    "Submit Exam",
+    "Dashboard"
 ])
 
 # ==========================
 # HOME
 # ==========================
-
 if page == "Home":
-    st.title("🏠 APC Preparation Agent (V4)")
-
-    st.markdown("""
-    ### Welcome
-
-    This tool helps you prepare for the SAICA APC:
-
-    - 📄 Identify triggers and risks  
-    - 📘 Build structured research packs  
-    - 🧪 Simulate the APC exam  
-    - ✅ Get competency-based feedback  
-
-    Use the sidebar to begin.
-    """)
+    st.title("🏠 APC Agent V11 (Elite System)")
+    st.write("Full APC simulation + adaptive feedback + performance tracking")
 
 # ==========================
-# ANALYSE CASE
+# CASE ANALYSIS
 # ==========================
-
-elif page == "Analyse Case":
-    st.header("📄 Analyse Case Study")
-
-    uploaded_file = st.file_uploader("Upload case (txt)", type=["txt"])
-    typed_input = st.text_area("Or paste case study")
+elif page == "Case Analysis":
+    file = st.file_uploader("Upload case", type=["pdf", "txt"])
+    text_input = st.text_area("Or paste case")
 
     case = ""
+    if file:
+        case = extract_pdf(file) if file.type == "application/pdf" else file.read().decode("utf-8")
+    elif text_input:
+        case = text_input
 
-    if uploaded_file:
-        case = uploaded_file.read().decode("utf-8")
-    elif typed_input:
-        case = typed_input
+    if st.button("Analyse Case"):
+        triggers = identify_triggers(case)
 
-    if st.button("Identify Triggers"):
-        if case:
-            triggers = identify_triggers(case)
+        st.markdown(highlight(case, triggers), unsafe_allow_html=True)
 
-            st.subheader("Detected Issues")
-
-            if triggers:
-                for t in triggers:
-                    st.write(f"✅ {t[0]} → {t[1]} ({t[2]} risk)")
-            else:
-                st.info("No triggers detected")
-        else:
-            st.warning("Please upload or paste a case")
+        st.subheader("Triggers")
+        for t in triggers:
+            st.write(f"{t['category']} ({t['strength']}) → {t['example']}")
 
 # ==========================
-# RESEARCH PACK
+# MOCK EXAM
 # ==========================
+elif page == "Mock Exam":
+    st.header("🧪 APC Mock Exam")
 
-elif page == "Research Pack":
-    st.header("📘 Research Pack Generator")
+    case = st.text_area("Paste case")
 
-    case = st.text_area("Paste case study")
+    if st.button("Start"):
+        st.session_state.case = case
+        st.session_state.start = time.time()
 
-    if st.button("Generate Research Pack"):
-        if case:
-            triggers = identify_triggers(case)
+        st.write("Required:")
+        st.write("1. Accounting")
+        st.write("2. Audit")
+        st.write("3. Tax")
+        st.write("4. FM")
+        st.write("5. Integrated recommendation")
 
-            summary = "Key Issues Identified:\n"
-            for t in triggers:
-                summary += "- {} ({} risk)\n".format(t[0], t[2])
-
-            st.subheader("Executive Summary")
-            st.text(summary)
-
-            st.subheader("Audit")
-            st.write("Focus on high-risk audit areas, including controls and potential fraud.")
-
-            st.subheader("Accounting")
-            st.write("Apply IFRS standards with appropriate judgement and disclosure.")
-
-            st.subheader("Tax")
-            st.write("Evaluate tax exposure, compliance, and SARS risks.")
-
-            st.subheader("Financial Management")
-            st.write("Assess liquidity, performance, and strategic financial risks.")
-
-        else:
-            st.warning("Enter a case first")
+    if "start" in st.session_state:
+        remaining = max(0, 2700 - int(time.time() - st.session_state.start))
+        st.write(f"⏱ Time: {remaining}s")
 
 # ==========================
-# PRACTICE EXAM
+# SUBMIT EXAM
 # ==========================
+elif page == "Submit Exam":
+    ans = st.text_area("Enter your answer")
+    case = st.session_state.get("case", "")
 
-elif page == "Practice Exam":
-    st.header("🧪 APC Exam Simulation")
+    if st.button("Evaluate"):
+        triggers = identify_triggers(case)
+        g = grade(ans)
 
-    case = st.text_area("Paste case study")
+        st.subheader(f"Result: {g}")
 
-    if st.button("Generate Exam"):
-        if case:
-            st.subheader("Case Study")
-            st.write(case)
+        st.write("Competencies:", competency_scores(ans))
+        st.write("Model Answer:", model_answer(triggers))
 
-            st.subheader("REQUIRED")
+        st.write("Comments:")
+        for c in examiner_comments(ans, g):
+            st.write("-", c)
 
-            st.write("1. Evaluate the accounting treatment (IFRS)")
-            st.write("2. Identify audit risks and responses")
-            st.write("3. Discuss tax implications")
-            st.write("4. Provide an integrated recommendation")
+        st.write("Next Step:", suggest_next_level(g))
 
-            st.session_state.start_time = time.time()
-
-        else:
-            st.warning("Enter a case first")
-
-    if "start_time" in st.session_state:
-        elapsed = int(time.time() - st.session_state.start_time)
-        remaining = max(0, 2700 - elapsed)
-        st.write(f"⏱ Time Remaining: {remaining} seconds")
+        # Save history
+        st.session_state.history.append({
+            "grade": g
+        })
 
 # ==========================
-# SUBMIT ANSWER
+# DASHBOARD ⭐
 # ==========================
+elif page == "Dashboard":
+    st.header("📊 Performance Dashboard")
 
-elif page == "Submit Answer":
-    st.header("✅ Submit & Get Marked")
+    history = st.session_state.history
 
-    uploaded_ans = st.file_uploader("Upload answer (txt)", type=["txt"])
-    typed_ans = st.text_area("Or enter your answer")
+    if history:
+        grades = [h["grade"] for h in history]
+        st.write("Attempts:", len(grades))
+        st.write("Results:", grades)
 
-    answer = ""
+        # Trend
+        improvement_map = {
+            "Not Competent": 1,
+            "Limited Competent": 2,
+            "Borderline Competent": 3,
+            "Competent": 4,
+            "Highly Competent": 5
+        }
 
-    if uploaded_ans:
-        answer = uploaded_ans.read().decode("utf-8")
-    elif typed_ans:
-        answer = typed_ans
+        numeric = [improvement_map[g] for g in grades]
 
-    if st.button("Mark Attempt"):
-        if answer:
-            level = competency_level(answer)
+        st.line_chart(numeric)
 
-            st.subheader(f"Performance Level: {level}")
-
-            feedback = generate_feedback(answer)
-
-            st.subheader("Feedback")
-            if feedback:
-                for f in feedback:
-                    st.write(f)
-            else:
-                st.write("✅ Strong integrated response")
-
-        else:
-            st.warning("Provide an answer")
+    else:
+        st.write("No attempts yet")
 
 # ==========================
 # FOOTER
 # ==========================
-
 st.markdown("---")
-st.caption("APC Agent V4 | CA(SA) Preparation Tool")
+st.caption("APC Agent V11 | Adaptive AI + Dashboard System")
+
